@@ -2,23 +2,23 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-DATA_DIR = Path("data 2022")
+DATA_DIR = Path("data 2023")
 OUT_DIR = Path("data/output")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 PRICE_FILES = [
-    DATA_DIR / "spotpriser_tyskland_2022.csv",
+    DATA_DIR / "spotpriser_tyskland_2023.csv",
 ]
 
 SOLAR_FILES = [
-    DATA_DIR / "solproduksjon_tyskland_2022.csv",
+    DATA_DIR / "solproduksjon_tyskland_2023.csv",
 ]
 
 SOLAR_PEAK_MW = 1.0
 
 BAT_P_MW = 1.0
-BAT_E_MWH = 4.0
-ETA_RT = 0.90
+BAT_E_MWH = 2.0
+ETA_RT = 0.93
 ETA_C = np.sqrt(ETA_RT)
 ETA_D = np.sqrt(ETA_RT)
 
@@ -61,9 +61,8 @@ def print_year_report(row: dict, title: str):
 
 
 def print_quarter_table(df: pd.DataFrame):
-    dfq = df[df["case"].isin(["Q1 2022", "Q2 2022", "Q3 2022", "Q4 2022"])].copy()
-    order = ["Q1 2022", "Q2 2022", "Q3 2022", "Q4 2022"]
-
+    dfq = df[df["case"].isin(["Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023"])].copy()
+    order = ["Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023"]
     dfq["case"] = pd.Categorical(dfq["case"], categories=order, ordered=True)
     dfq = dfq.sort_values("case")
 
@@ -108,7 +107,6 @@ def find_time_column(df: pd.DataFrame) -> str:
             return c
 
     lowered = {c.lower(): c for c in cols}
-
     for key in ["hour", "time", "date", "datetime", "#hour"]:
         for low, orig in lowered.items():
             if key in low:
@@ -147,21 +145,19 @@ def read_series_from_files(files: list[Path], value_col: str) -> pd.DataFrame:
     out = pd.concat(parts, ignore_index=True)
     out = out.groupby("time", as_index=False)[value_col].mean()
     out = out.sort_values("time").reset_index(drop=True)
-
     return out
 
 
-def build_year_df_2022() -> pd.DataFrame:
+def build_year_df_2023() -> pd.DataFrame:
     price = read_series_from_files(PRICE_FILES, "SPOTDE")
     solar = read_series_from_files(SOLAR_FILES, "PRODESOL")
 
     df = pd.merge(price, solar, on="time", how="inner").sort_values("time").reset_index(drop=True)
 
-    start = pd.Timestamp("2022-01-01 00:00:00")
-    end = pd.Timestamp("2023-01-01 00:00:00")
+    start = pd.Timestamp("2023-01-01 00:00:00")
+    end = pd.Timestamp("2024-01-01 00:00:00")
 
     df = df[(df["time"] >= start) & (df["time"] < end)].copy().reset_index(drop=True)
-
     return df
 
 
@@ -173,7 +169,6 @@ def scale_solar_to_1mw_peak(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("PRODESOL peak <= 0. Sjekk soldata.")
 
     df2["PRODESOL"] = df2["PRODESOL"] * (SOLAR_PEAK_MW / peak)
-
     return df2
 
 
@@ -243,7 +238,6 @@ def optimal_battery_dp(df: pd.DataFrame) -> tuple[float, np.ndarray]:
 
                 if charge > solar + 1e-9:
                     continue
-
                 if charge > BAT_P_MW + 1e-9 or discharge > BAT_P_MW + 1e-9:
                     continue
 
@@ -339,24 +333,24 @@ def run_case(df_period: pd.DataFrame, label: str) -> dict:
 
 
 def main():
-    print("=== Bygger helår 2022 fra pris + sol ===")
+    print("=== Bygger helår 2023 fra pris + sol ===")
 
-    df_2022 = build_year_df_2022()
+    df_2023 = build_year_df_2023()
 
-    print("Timer i merged helår:", len(df_2022))
-    print("Min/max:", df_2022["time"].min(), df_2022["time"].max())
+    print("Timer i merged helår:", len(df_2023))
+    print("Min/max:", df_2023["time"].min(), df_2023["time"].max())
 
-    df_2022 = scale_solar_to_1mw_peak(df_2022)
+    df_2023 = scale_solar_to_1mw_peak(df_2023)
 
-    print("Sol peak etter skalering:", float(df_2022["PRODESOL"].max()))
-    print("Sol MWh etter skalering:", float(df_2022["PRODESOL"].sum()))
+    print("Sol peak etter skalering:", float(df_2023["PRODESOL"].max()))
+    print("Sol MWh etter skalering:", float(df_2023["PRODESOL"].sum()))
 
     periods = [
-        ("Q1 2022", "2022-01-01 00:00:00", "2022-04-01 00:00:00"),
-        ("Q2 2022", "2022-04-01 00:00:00", "2022-07-01 00:00:00"),
-        ("Q3 2022", "2022-07-01 00:00:00", "2022-10-01 00:00:00"),
-        ("Q4 2022", "2022-10-01 00:00:00", "2023-01-01 00:00:00"),
-        ("Hele 2022", "2022-01-01 00:00:00", "2023-01-01 00:00:00"),
+        ("Q1 2023", "2023-01-01 00:00:00", "2023-04-01 00:00:00"),
+        ("Q2 2023", "2023-04-01 00:00:00", "2023-07-01 00:00:00"),
+        ("Q3 2023", "2023-07-01 00:00:00", "2023-10-01 00:00:00"),
+        ("Q4 2023", "2023-10-01 00:00:00", "2024-01-01 00:00:00"),
+        ("Hele 2023", "2023-01-01 00:00:00", "2024-01-01 00:00:00"),
     ]
 
     results = []
@@ -365,25 +359,25 @@ def main():
         s = pd.Timestamp(start)
         e = pd.Timestamp(end)
 
-        df_p = df_2022[(df_2022["time"] >= s) & (df_2022["time"] < e)].copy().reset_index(drop=True)
+        df_p = df_2023[(df_2023["time"] >= s) & (df_2023["time"] < e)].copy().reset_index(drop=True)
         results.append(run_case(df_p, label))
 
     summary_df = pd.DataFrame(results)
 
-    order_case = ["Q1 2022", "Q2 2022", "Q3 2022", "Q4 2022", "Hele 2022"]
+    order_case = ["Q1 2023", "Q2 2023", "Q3 2023", "Q4 2023", "Hele 2023"]
     summary_df["case_order"] = summary_df["case"].map({c: i for i, c in enumerate(order_case)})
     summary_df = summary_df.sort_values("case_order").drop(columns=["case_order"]).reset_index(drop=True)
 
-    out_path = OUT_DIR / "summary_battery_cases_2022_1mw_4h_eta90.csv"
+    out_path = OUT_DIR / "summary_battery_cases_2023_1mw_2h_eta93.csv"
     summary_df.to_csv(out_path, index=False)
 
     print("\nLagret CSV:", out_path)
 
-    year_row = summary_df[summary_df["case"] == "Hele 2022"].iloc[0].to_dict()
+    year_row = summary_df[summary_df["case"] == "Hele 2023"].iloc[0].to_dict()
 
     print_year_report(
         year_row,
-        "BASE CASE: 1 MW sol (peak) + 1 MW / 4 MWh batteri | η = 90 % | Hele 2022"
+        "BASE CASE: 1 MW sol (peak) + 1 MW / 2 MWh batteri | η = 93 % | Hele 2023"
     )
 
     print_quarter_table(summary_df)
